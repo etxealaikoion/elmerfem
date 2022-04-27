@@ -76,6 +76,14 @@ You may find the PDFs for the documentation http://www.elmerfem.org/blog/documen
  * With MPI:
     ** `cmake .. -DWITH_OpenMP:BOOLEAN=TRUE -DWITH_MPI:BOOLEAN=TRUE`
  * With ElmerGUI:
+    **~~~bash
+    sudo apt install libqwt-qt5-dev libnetcdf-dev libnetcdff-dev libmumps-dev
+    sudo apt install libparmetis-dev
+    
+    I also needed to install qt5, using the installer from the web. I only installed Qt5.15.2. Then Qt5 requires the following dependencies
+    sudo apt-get install libdrm-dev # I think it was allready installed
+    sudo apt install mesa-common-dev libglu1-mesa-dev
+   ~~~  
     ** `sudo apt install libqt4-dev libqwt-dev`
     ** `cmake .. -DWITH_OpenMP:BOOLEAN=TRUE -DWITH_MPI:BOOLEAN=TRUE -DWITH_ELMERGUI:BOOLEAN=TRUE`
  * With Elmer/Ice (enabling netcdf and MUMPS):
