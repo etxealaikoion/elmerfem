@@ -76,10 +76,11 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
   LOGICAL :: GotIt, GotIt2, GotIt3, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
       UseVelocity, Bubbles, ApplyLimiter, LinearModel, ManningModel, GotMinGap, &
-      OpenSide,GotExt,GotFlux, AnyBC, GotPseudoPressure
+      OpenSide,GotExt,GotFlux, AnyBC, GotPseudoPressure, SurfAC
   REAL(KIND=dp), POINTER :: Pressure(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, HeatRatio, BulkModulus, &
-      mfp0, Pres, Dens, ManningCoeff, GravityCoeff, MinGap, MinGradPres
+      mfp0, Pres, Dens, ManningCoeff, GravityCoeff, MinGap, MinGradPres, &
+      ACScale
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
       Viscosity(:), GapHeight(:), NormalVelocity(:), Velocity(:,:), &
       Admittance(:), Impedance(:), ElemPressure(:), PrevElemPressure(:),  &
@@ -193,7 +194,13 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
     AllocationsDone = .TRUE.
   END IF
 
-  IF(GotPseudoPressure) PseudoPressure = Pressure
+  IF(GotPseudoPressure) THEN
+    PseudoPressure = Pressure
+    ACScale = ListGetConstReal( Model % Simulation, &
+        'Artificial Compressibility Scaling',GotIt)      
+    IF(.NOT.GotIt) ACScale = 1.0      
+    !IF(Transient) ACScale = ACScale / dt
+  END IF
   
   
 !------------------------------------------------------------------------------
@@ -420,9 +427,11 @@ CONTAINS
           END IF
         END IF
       END IF
-      
+
+      SurfAC = .FALSE.
       IF( CompressibilityType == Compressibility_Artificial ) THEN
-        ElemArtif(1:n) = GetReal( Material,'Artificial Compressibility')
+        ElemArtif(1:n) = GetReal( Material,'Artificial Compressibility',GotIt)
+        IF(.NOT. GotIt) ElemArtif(1:n) = GetReal( Material,'Surface Compressibility',SurfAC)
       END IF
 
       
@@ -634,11 +643,15 @@ CONTAINS
 
       ! Multiplier of dp/dt in terms of artificial copressibility
       ! This is pseudotime, not real time...
+      MA = 0.0_dp
       IF( GotAC ) THEN
         PseudoPres = SUM(Basis(1:n) * ElemPseudoPressure(1:n) )              
-        MA = -Density * Gap * SUM( ElemArtif(1:n) * Basis(1:n) ) / dt
-      ELSE
-        MA = 0.0_dp        
+        IF( SurfAC ) THEN
+          MA = ( -Density / dt ) * SUM( ElemArtif(1:n) * Basis(1:n) ) 
+        ELSE
+          MA = ( -Density / dt ) * Gap * SUM( ElemArtif(1:n) * Basis(1:n) )
+        END IF        
+        MA = ACScale * MA
       END IF
         
       ! Normal velocity: right-hand-side force vector
